@@ -1,7 +1,10 @@
 package com.example.productservicettsevening.controller;
 
+import com.example.productservicettsevening.Exceptions.NotFoundException;
+import com.example.productservicettsevening.dtos.ErrorResponseDto;
 import com.example.productservicettsevening.dtos.GetSingleProductResponseDto;
 import com.example.productservicettsevening.dtos.Productdto;
+import com.example.productservicettsevening.models.Category;
 import com.example.productservicettsevening.models.Product;
 import com.example.productservicettsevening.services.ProductService;
 import org.springframework.http.HttpHeaders;
@@ -12,6 +15,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/products")
@@ -27,7 +31,8 @@ public class ProductController {
 
 
     @GetMapping("/{productId}")
-    public ResponseEntity<Product> getSingleProduct(@PathVariable("productId") Long productId){
+    public ResponseEntity<Product> getSingleProduct(@PathVariable("productId") Long productId)
+    throws NotFoundException{
 
        // GetSingleProductResponseDto responseDto=new GetSingleProductResponseDto();
         //responseDto.setProduct(
@@ -37,6 +42,13 @@ public class ProductController {
         headers.add(
                 "auth-token", "noaccesstokey"
         );
+
+        Optional<Product>productOptional=productService.getSingleProduct(productId);
+
+        if(productOptional.isEmpty()){
+            throw  new NotFoundException("Not a Product with Product Id " +productId);
+        }
+
               ResponseEntity<Product>response=new ResponseEntity(
                       productService.getSingleProduct(productId),
                       headers,
@@ -54,14 +66,31 @@ public class ProductController {
         return response;
     }
 
-@PutMapping("/{productId}")
-    public String updateAProduct(@PathVariable("productId") Long productId){
+@PatchMapping("/{productId}")
+    public Product updateAProduct(@PathVariable("productId") Long productId,
+                                  @RequestBody Productdto productdto){
+        Product product=new Product();
+        product.setId(productdto.getId());
+        product.setTitle(productdto.getTitle());
+        product.setCategory(new Category());
+        product.getCategory().setName(productdto.getCategory());
+        product.setDescription(productdto.getDescription());
+        product.setPrice(productdto.getPrice());
+        return productService.updateAProduct(productId, product);
 
-        return "Updating the Product";
     }
 
 @DeleteMapping("/{productId}")
     public String deleteAProduct(@PathVariable("productId") Long productId){
         return "Deleting the Product "+productId;
     }
+
+
+//    @ExceptionHandler(NotFoundException.class)
+//    public ResponseEntity<ErrorResponseDto>handleException(Exception e){
+//        ErrorResponseDto errorResponseDto=new ErrorResponseDto();
+//        errorResponseDto.setErrorMessage(e.getMessage());
+//
+//        return new ResponseEntity<>(errorResponseDto,HttpStatus.NOT_FOUND);
+//    }
 }

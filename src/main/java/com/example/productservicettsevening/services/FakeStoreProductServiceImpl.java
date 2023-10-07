@@ -1,97 +1,124 @@
 package com.example.productservicettsevening.services;
 
+import com.example.productservicettsevening.Clients.FakeStoreApi.FakeStoreClient;
+import com.example.productservicettsevening.Clients.FakeStoreApi.FakeStoreProductDto;
 import com.example.productservicettsevening.dtos.Productdto;
 import com.example.productservicettsevening.models.Category;
 import com.example.productservicettsevening.models.Product;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RequestCallback;
+import org.springframework.web.client.ResponseExtractor;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @Service
 public class FakeStoreProductServiceImpl implements ProductService{
     private RestTemplateBuilder restTemplateBuilder;
+    private FakeStoreClient fakeStoreClient;
 
-    public FakeStoreProductServiceImpl(RestTemplateBuilder restTemplateBuilder){
+    public FakeStoreProductServiceImpl(RestTemplateBuilder restTemplateBuilder,FakeStoreClient fakeStoreClient){
         this.restTemplateBuilder=restTemplateBuilder;
+        this.fakeStoreClient=fakeStoreClient;
+    }
+
+    private  <T> ResponseEntity<T> requestForEntity(HttpMethod httpMethod,String url, @Nullable Object request, Class<T> responseType, Object... uriVariables) throws RestClientException {
+
+        RestTemplate restTemplate=restTemplateBuilder.requestFactory(HttpComponentsClientHttpRequestFactory.class).build();
+
+        RequestCallback requestCallback = restTemplate.httpEntityCallback(request, responseType);
+        ResponseExtractor<ResponseEntity<T>> responseExtractor = restTemplate.responseEntityExtractor(responseType);
+        return (restTemplate.execute(url,httpMethod, requestCallback, responseExtractor, uriVariables));
+    }
+
+    private Product convertFakeStoreProductDtoToProduct(FakeStoreProductDto productDto){
+        Product product=new Product();
+        product.setId(productDto.getId());
+        product.setTitle(productDto.getTitle());
+        product.setPrice(productDto.getPrice());
+        product.setDescription(productDto.getDescription());
+        Category category=new Category();
+        category.setName(productDto.getCategory());
+        product.setCategory(category);
+        product.setImageUrl(productDto.getImage());
+        return product;
     }
     @Override
     public List<Product> getAllProducts() {
-        RestTemplate restTemplate=restTemplateBuilder.build();
-        ResponseEntity<List>l=restTemplate.getForEntity(
-                "https://fakestoreapi.com/products",
-                List.class
-        );
+List<FakeStoreProductDto>fakeStoreProductDtoList=fakeStoreClient.getAllProducts();
         List<Product>answer=new ArrayList<>();
-        for(Object obj:l.getBody()){
-            HashMap<String,Object>hm= (HashMap<String,Object>)obj;
 
-            Product product=new Product();
-            product.setId(Long.valueOf((Integer)hm.get("id")));
-            product.setTitle((String) hm.get("title"));
-            product.setPrice(Double.valueOf(hm.get("price").toString()));
-            product.setDescription((String) hm.get("description"));
-            Category category=new Category();
-            category.setName((String) hm.get("category"));
-            product.setCategory(category);
-            product.setImageUrl((String) hm.get("image"));
-            answer.add(product);
+        for(FakeStoreProductDto productDto:fakeStoreProductDtoList){
+         //   HashMap<String,Object>hm= (HashMap<String,Object>)obj;
+            answer.add(convertFakeStoreProductDtoToProduct(productDto));
         }
         return answer;
     }
 
     @Override
-    public Product getSingleProduct(Long productId) {
+    public Optional<Product> getSingleProduct(Long productId) {
         RestTemplate restTemplate=restTemplateBuilder.build();
-        ResponseEntity<Productdto>response=restTemplate.getForEntity("https://fakestoreapi.com/products/{id}",Productdto.class,productId);
-        Productdto productdto=response.getBody();
+        ResponseEntity<FakeStoreProductDto>response=restTemplate.getForEntity(
+                "https://fakestoreapi.com/products/{id}",
+                FakeStoreProductDto.class,productId);
 
-        Product product=new Product();
-        product.setId(productdto.getId());
-        product.setTitle(productdto.getTitle());
-        product.setPrice(productdto.getPrice());
-        product.setDescription(productdto.getDescription());
-        Category category=new Category();
-        category.setName(productdto.getCategory());
-        product.setCategory(category);
-        product.setImageUrl(productdto.getImage());
-
-        return product;
+        FakeStoreProductDto productDto=response.getBody();
+        if(productDto==null){
+            return Optional.empty();
+        }
+        return Optional.of(convertFakeStoreProductDtoToProduct(productDto));
     }
 
     @Override
     public Product addNewProduct(Productdto product) {
         RestTemplate restTemplate=restTemplateBuilder.build();
-        ResponseEntity<Productdto>response=restTemplate.postForEntity(
+        ResponseEntity<FakeStoreProductDto>response=restTemplate.postForEntity(
                 "https://fakestoreapi.com/products",
                 product,
-                Productdto.class
+                FakeStoreProductDto.class
         );
-        Productdto productdto=response.getBody();
+        FakeStoreProductDto productDto=response.getBody();
 
-        Product product1=new Product();
-        product1.setId(productdto.getId());
-        product1.setTitle(productdto.getTitle());
-        product1.setPrice(productdto.getPrice());
-        product1.setDescription(productdto.getDescription());
-        Category category=new Category();
-        category.setName(productdto.getCategory());
-        product1.setCategory(category);
-        product1.setImageUrl(productdto.getImage());
-
-        return product1;
+        return convertFakeStoreProductDtoToProduct(productDto);
     }
 
     @Override
     public Product updateAProduct(Long productId,Product product) {
-            return product;
-    }
+        RestTemplate restTemplate=restTemplateBuilder.requestFactory(HttpComponentsClientHttpRequestFactory.class).build();
+        FakeStoreProductDto fakeStoreProductDto = new FakeStoreProductDto();
+        fakeStoreProductDto.setDescription(product.getDescription());
+        fakeStoreProductDto.setImage(product.getImageUrl());
+        fakeStoreProductDto.setPrice(product.getPrice());
+        fakeStoreProductDto.setTitle(product.getTitle());
+        fakeStoreProductDto.setCategory(product.getCategory().getName());
 
+//        ResponseEntity<FakeStoreProductDto>fakeStoreProductDtoResponseEntity=requestForEntity(
+//                HttpMethod.PATCH,
+//                "http://fakestoreapi.com/products/{id}",
+//                fakeStoreProductDto,
+//                FakeStoreProductDto.class,
+//                productId
+//        );
+        FakeStoreProductDto fakeStoreProductDtoResponse=restTemplate.patchForObject(
+                "http://fakestoreapi.com/products/{id}",
+                    fakeStoreProductDto,
+                    FakeStoreProductDto.class,
+                    productId
+      );
+      //  return convertFakeStoreProductDtoToProduct(fakeStoreProductDtoResponseEntity.getBody());
+        return convertFakeStoreProductDtoToProduct(fakeStoreProductDtoResponse);
+
+    }
+    public  Product replaceProduct(Long productId, Product product){
+
+        return product;
+    }
     @Override
     public boolean deleteAProduct(Long productId) {
         return false;
