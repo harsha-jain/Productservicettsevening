@@ -6,6 +6,7 @@ import com.example.productservicettsevening.dtos.GetSingleProductResponseDto;
 import com.example.productservicettsevening.dtos.Productdto;
 import com.example.productservicettsevening.models.Category;
 import com.example.productservicettsevening.models.Product;
+import com.example.productservicettsevening.repositories.ProductRepository;
 import com.example.productservicettsevening.services.ProductService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -21,7 +22,9 @@ import java.util.Optional;
 @RequestMapping("/products")
 public class ProductController {
     private ProductService productService;
-    public ProductController(ProductService productService){
+    private ProductRepository productRepository;
+    public ProductController(ProductService productService,ProductRepository productRepository){
+       this.productRepository=productRepository;
         this.productService=productService;
     }
     @GetMapping()
@@ -61,8 +64,15 @@ public class ProductController {
 @PostMapping()
     public ResponseEntity<Product> addNewProduct(@RequestBody Productdto product){
 
-            Product newProduct= productService.addNewProduct(product);
-            ResponseEntity<Product>response=new ResponseEntity<>(newProduct,HttpStatus.OK);
+          //  Product newProduct= productService.addNewProduct(product);
+    Product newProduct=new Product();
+    newProduct.setDescription(product.getDescription());
+    newProduct.setImageUrl(product.getImage());
+    newProduct.setTitle(product.getTitle());
+    newProduct.setPrice(product.getPrice());
+    newProduct=productRepository.save(newProduct);
+
+    ResponseEntity<Product>response=new ResponseEntity<>(newProduct,HttpStatus.OK);
         return response;
     }
 
